@@ -6,7 +6,7 @@ GET  /api/v1/images/{id}    – fetch single image by id
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
@@ -24,6 +24,21 @@ from app.utils.image_utils import (
     get_image_dimensions,
     validate_image_file,
 )
+
+
+def _vectorize_single(record: dict) -> None:
+    """Background task: vectorize one newly uploaded image record."""
+    import asyncio
+    from app.pipelines.vectorize import PipelineState, vectorize_graph
+
+    state: PipelineState = {
+        "records": [record],
+        "embedded": [],
+        "upserted_count": 0,
+        "errors": [],
+    }
+    asyncio.run(vectorize_graph.ainvoke(state))
+
 
 router = APIRouter(prefix="/images", tags=["Images"])
 
@@ -47,6 +62,7 @@ async def upload_image(
     # ── file ───────────────────────────────────────────────────
     file: UploadFile = File(..., description="The image file to upload (type is auto-detected)"),
     # ── dependencies ───────────────────────────────────────────
+    background_tasks: BackgroundTasks = None,
     db: AsyncSession = Depends(get_db),
 ) -> UploadResponse:
     # 1. Read bytes
@@ -101,8 +117,26 @@ async def upload_image(
         mime_type=content_type,
     )
 
+    # 7. Queue auto-vectorization in the background
+    if background_tasks is not None:
+        record = {
+            "id":             asset.id,
+            "title":          asset.title,
+            "description":    asset.description,
+            "category":       str(asset.category),
+            "image_type":     str(asset.image_type),
+            "public_url":     asset.public_url,
+            "r2_key":         asset.r2_key,
+            "file_size_bytes":asset.file_size_bytes,
+            "width":          asset.width,
+            "height":         asset.height,
+            "mime_type":      asset.mime_type,
+            "created_at":     asset.created_at,
+        }
+        background_tasks.add_task(_vectorize_single, record)
+
     return UploadResponse(
-        message="Image uploaded successfully.",
+        message="Image uploaded successfully. Vectorization queued.",
         data=ImageAssetRead.model_validate(asset),
     )
 

@@ -17,6 +17,14 @@ class Settings(BaseSettings):
     R2_BUCKET_NAME: str
     R2_PUBLIC_URL: str  # base URL to construct public image links
 
+    # Google Gemini (embeddings: gemini-embedding-001 → 3072 dims)
+    GEMINI_API_KEY: str
+
+    # Qdrant Cloud
+    QDRANT_URL: str                              # e.g. https://xyz.qdrant.tech
+    QDRANT_API_KEY: str
+    QDRANT_COLLECTION_NAME: str = "image_assets"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
