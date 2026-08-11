@@ -18,6 +18,7 @@ from app.services.image_service import (
     get_image_asset_by_id,
 )
 from app.services.r2_service import upload_image_to_r2
+from app.services.vision_service import generate_image_description
 from app.utils.image_utils import (
     CONTENT_TYPE_TO_EXT,
     detect_image_type,
@@ -57,7 +58,7 @@ router = APIRouter(prefix="/images", tags=["Images"])
 async def upload_image(
     # ── form fields ────────────────────────────────────────────
     title: str = Form(..., description="Short human-readable title"),
-    description: str = Form(..., description="Required description of the image"),
+    description: Optional[str] = Form(None, description="Optional description (auto-generated via Gemini Vision if omitted)"),
     category: ImageCategory = Form(..., description="Image category"),
     # ── file ───────────────────────────────────────────────────
     file: UploadFile = File(..., description="The image file to upload (type is auto-detected)"),
@@ -82,11 +83,22 @@ async def upload_image(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
 
-    # 4. Extract dimensions
+    # 4. Generate description using Gemini Vision if not provided
+    final_description = description
+    if not final_description or not final_description.strip():
+        try:
+            final_description = generate_image_description(raw_bytes, content_type)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Failed to auto-generate image description: {exc}",
+            )
+
+    # 5. Extract dimensions
     dimensions = get_image_dimensions(raw_bytes)
     width, height = dimensions if dimensions else (None, None)
 
-    # 5. Upload to Cloudflare R2
+    # 6. Upload to Cloudflare R2
     try:
         r2_key, public_url = upload_image_to_r2(
             file_bytes=raw_bytes,
@@ -99,10 +111,10 @@ async def upload_image(
             detail=f"Failed to upload image to R2: {exc}",
         )
 
-    # 6. Persist metadata to PostgreSQL
+    # 7. Persist metadata to PostgreSQL
     form = ImageUploadForm(
         title=title,
-        description=description,
+        description=final_description,
         category=category,
         image_type=detected_image_type,   # auto-detected
     )
@@ -117,7 +129,7 @@ async def upload_image(
         mime_type=content_type,
     )
 
-    # 7. Queue auto-vectorization in the background
+    # 8. Queue auto-vectorization in the background
     if background_tasks is not None:
         record = {
             "id":             asset.id,

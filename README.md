@@ -13,6 +13,7 @@ A FastAPI + uv pipeline for uploading images to **Cloudflare R2**, storing metad
 | Migrations | Alembic |
 | Storage | Cloudflare R2 via `boto3` (S3-compatible) |
 | Database | PostgreSQL 16 + Adminer UI (Docker Compose) |
+| Vision AI | Google Gemini 3.6 Flash (Auto-Image Description) |
 | Orchestration | LangGraph |
 | Embeddings | Google Gemini (`gemini-embedding-001` - 3072 dims) |
 | Vector DB | Qdrant Cloud (with Payload Indexes) |
@@ -28,14 +29,19 @@ The image vectorization workflow uses **LangGraph** to process image records, ge
 ```
                  POST /api/v1/images/upload
                              │
-            ┌────────────────┴────────────────┐
-            ▼                                 ▼
-   Cloudflare R2 (Image)             PostgreSQL (Metadata)
-                                              │
-                                              ▼
+              Is description provided by user?
+                   ├── NO ──► Gemini 3.6 Flash (Vision AI)
+                   │          Generates brief image description
+                   │          │
+                   └── YES ───┴──► Cloudflare R2 (Image Upload)
+                                           │
+                                           ▼
+                                 PostgreSQL (Saves Metadata + Description)
+                                           │
+                                           ▼
                              Background Task / Auto-Trigger
-                                              │
-                                              ▼
+                                           │
+                                           ▼
                              ┌─────────────────────────────────┐
                              │  LangGraph Vectorize Pipeline   │
                              └────────────────┬────────────────┘

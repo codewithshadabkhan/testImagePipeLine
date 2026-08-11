@@ -11,9 +11,9 @@ class ImageUploadForm(BaseModel):
     """Mirrors the multipart/form-data fields sent with the image file."""
 
     title: str
-    description: str                  # required
+    description: Optional[str] = None  # Auto-generated via Gemini Vision if omitted
     category: ImageCategory
-    image_type: ImageType             # populated by the endpoint via auto-detection
+    image_type: ImageType             # Populated by the endpoint via auto-detection
 
     model_config = ConfigDict(use_enum_values=True)
 
