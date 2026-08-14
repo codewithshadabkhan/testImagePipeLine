@@ -25,6 +25,7 @@ class ImageType(str, enum.Enum):
     webp = "webp"
     gif = "gif"
     avif = "avif"
+    svg = "svg"
 
 
 # ── ORM Model ──────────────────────────────────────────────────────────────────

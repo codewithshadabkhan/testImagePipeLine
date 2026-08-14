@@ -11,6 +11,7 @@ from app.db.base import Base
 from app.db.session import engine
 # Import models so Alembic / SQLAlchemy can discover them
 import app.models.image_asset  # noqa: F401
+import app.models.svg_icon     # noqa: F401
 
 settings = get_settings()
 

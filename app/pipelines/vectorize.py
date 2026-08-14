@@ -27,23 +27,8 @@ from app.services.qdrant_service import ensure_collection, get_qdrant_client
 
 settings = get_settings()
 
-# ── Gemini embedding helper (uses v1 API directly via google-genai SDK) ──────────
-EMBED_MODEL = "models/gemini-embedding-001"
-
-
-def embed_texts(texts: list[str]) -> list[list[float]]:
-    """
-    Batch-embed a list of strings with Gemini text-embedding-004.
-    Uses the google-genai SDK directly (v1 API) to avoid the
-    langchain-google-genai v1beta routing issue.
-    """
-    client = genai.Client(api_key=settings.GEMINI_API_KEY)
-    result = client.models.embed_content(
-        model=EMBED_MODEL,
-        contents=texts,
-    )
-    return [e.values for e in result.embeddings]
-
+# ── Embedding service with HuggingFace Fallback ────────────────────────────────
+from app.services.embedding_service import embed_texts_with_fallback
 
 # ── Pipeline state ─────────────────────────────────────────────────────────────
 class PipelineState(TypedDict):
@@ -68,10 +53,9 @@ def fetch_records(state: PipelineState) -> PipelineState:
 
     return {**state, "records": valid, "errors": errors}
 
-
 # ── Node 2 : embed_records ─────────────────────────────────────────────────────
 def embed_records(state: PipelineState) -> PipelineState:
-    """Batch-embed all descriptions with Gemini text-embedding-004 via v1 API."""
+    """Batch-embed all descriptions with Gemini / Hugging Face fallback."""
     records = state["records"]
     if not records:
         return {**state, "embedded": [], "errors": state["errors"] + ["No records to embed."]}
@@ -79,7 +63,7 @@ def embed_records(state: PipelineState) -> PipelineState:
     texts = [r["description"] for r in records]
 
     try:
-        vectors = embed_texts(texts)
+        vectors, provider = embed_texts_with_fallback(texts)
     except Exception as exc:
         return {
             **state,

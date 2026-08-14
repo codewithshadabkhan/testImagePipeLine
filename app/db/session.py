@@ -17,6 +17,9 @@ AsyncSessionLocal = async_sessionmaker(
     autocommit=False,
 )
 
+# Public alias used by background pipelines that run outside FastAPI DI
+async_session_factory = AsyncSessionLocal
+
 
 async def get_db() -> AsyncSession:  # type: ignore[return]
     """FastAPI dependency that yields a database session."""

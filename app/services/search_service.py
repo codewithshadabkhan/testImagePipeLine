@@ -136,10 +136,10 @@ def semantic_search(
     )
 
     client = get_qdrant_client()
-    results = client.search(
+    response = client.query_points(
         collection_name=settings.QDRANT_COLLECTION_NAME,
-        query_vector=query_vector,
-        query_filter=query_filter,      # uses payload indexes automatically
+        query=query_vector,
+        query_filter=query_filter,
         limit=top_k,
         score_threshold=score_threshold,
         with_payload=True,
@@ -150,5 +150,5 @@ def semantic_search(
             "score":   round(hit.score, 4),
             "payload": hit.payload,
         }
-        for hit in results
+        for hit in response.points
     ]

@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     # Google Gemini (embeddings: gemini-embedding-001 → 3072 dims)
     GEMINI_API_KEY: str
 
+    # Hugging Face Fallback (embeddings: e.g. sentence-transformers/all-MiniLM-L6-v2)
+    HF_TOKEN: str = ""
+    HF_EMBEDDING_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"
+
     # Qdrant Cloud
     QDRANT_URL: str                              # e.g. https://xyz.qdrant.tech
     QDRANT_API_KEY: str

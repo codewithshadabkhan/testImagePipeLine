@@ -14,6 +14,7 @@ ALLOWED_CONTENT_TYPES = {
     "image/webp",
     "image/gif",
     "image/avif",
+    "image/svg+xml",
 }
 
 CONTENT_TYPE_TO_EXT: dict[str, str] = {
@@ -22,6 +23,7 @@ CONTENT_TYPE_TO_EXT: dict[str, str] = {
     "image/webp": "webp",
     "image/gif": "gif",
     "image/avif": "avif",
+    "image/svg+xml": "svg",
 }
 
 CONTENT_TYPE_TO_IMAGE_TYPE: dict[str, str] = {
@@ -30,6 +32,7 @@ CONTENT_TYPE_TO_IMAGE_TYPE: dict[str, str] = {
     "image/webp": "webp",
     "image/gif": "gif",
     "image/avif": "avif",
+    "image/svg+xml": "svg",
 }
 
 
@@ -62,9 +65,24 @@ def validate_image_file(content_type: str, size_bytes: int) -> None:
 
 
 def get_image_dimensions(data: bytes) -> Optional[tuple[int, int]]:
-    """Return (width, height) using Pillow, or None on failure."""
+    """Return (width, height) using Pillow or SVG parsing, or None on failure."""
     try:
         with Image.open(BytesIO(data)) as img:
             return img.size  # (width, height)
     except Exception:
+        # Fallback for SVG parsing
+        try:
+            import re
+            text = data.decode("utf-8", errors="ignore")
+            # Try width and height attributes first
+            w_match = re.search(r'width=["\'](\d+(?:\.\d+)?)', text)
+            h_match = re.search(r'height=["\'](\d+(?:\.\d+)?)', text)
+            if w_match and h_match:
+                return (int(float(w_match.group(1))), int(float(h_match.group(1))))
+            # Try viewBox
+            vb_match = re.search(r'viewBox=["\']\s*0\s+0\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)', text, re.I)
+            if vb_match:
+                return (int(float(vb_match.group(1))), int(float(vb_match.group(2))))
+        except Exception:
+            pass
         return None

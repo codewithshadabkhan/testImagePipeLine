@@ -7,7 +7,7 @@ from app.core.config import get_settings
 
 settings = get_settings()
 
-VISION_MODEL = "models/gemini-3.6-flash"
+VISION_MODEL = "models/gemini-3.5-flash-lite"
 
 
 def generate_image_description(image_bytes: bytes, mime_type: str) -> str:
